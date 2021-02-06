@@ -20,8 +20,12 @@ defmodule FreeTimeTest do
              "01:15AM-00:30AM",
            ]) == "00:45"
     assert FreeTime.find_longest_free_break([
-             "23:15AM-23:30AM",
+             "11:15PM-11:30PM",
              "01:15AM-01:30AM",
            ], "02:00AM") == "01:45"
+    assert FreeTime.find_longest_free_break([
+             "11:15PM-11:30PM",
+             "01:15AM-01:30AM",
+           ], "12:00PM") == "21:45"
   end
 end
