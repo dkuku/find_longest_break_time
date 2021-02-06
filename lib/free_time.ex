@@ -3,11 +3,14 @@ defmodule FreeTime do
   Module finds longest break time from a list of ranges
   It uses pattern matching on string to parse input time ranges
   """
+  @day_minutes 60 * 24
 
-  @spec find_longest_free_break(list(String.t())) :: String.t()
-  def find_longest_free_break(list_of_ranges) do
+  @spec find_longest_free_break(list(String.t()), String.t()) :: String.t()
+  def find_longest_free_break(list_of_ranges, start_of_day \\ "12:00PM") do
+    start_of_day_minutes = get_time(start_of_day)
+
     list_of_ranges
-    |> Enum.map(&parse_time_range_to_minutes(&1))
+    |> Enum.map(&parse_time_range_to_minutes(&1, start_of_day_minutes))
     |> Enum.sort()
     |> Enum.reduce({0, 0}, &break_time_reducer/2)
     |> extract_max_time()
@@ -50,26 +53,41 @@ defmodule FreeTime do
   end
 
   #  assert FreeTime.parse_time_range_to_minutes("10:15AM-10:30PM") == {615, 1350}
-  @spec parse_time_range_to_minutes(String.t()) :: {integer(), integer()}
-  defp parse_time_range_to_minutes(<<
-         hours_from::binary-size(2),
-         ?:,
-         minutes_from::binary-size(2),
-         am_or_pm_from::binary-size(2),
-         ?-,
-         hours_to::binary-size(2),
-         ?:,
-         minutes_to::binary-size(2),
-         am_or_pm_to::binary-size(2)
-       >>) do
-    from_time = get_time(hours_from, minutes_from, am_or_pm_from)
-    to_time = get_time(hours_to, minutes_to, am_or_pm_to)
+  @spec parse_time_range_to_minutes(String.t(), integer()) :: {integer(), integer()}
+  defp parse_time_range_to_minutes(
+         <<
+           from::binary-size(7),
+           ?-,
+           to::binary-size(7)
+         >>,
+         start_of_day_minutes
+       ) do
+    from_time = get_time(from, start_of_day_minutes)
+    to_time = get_time(to, start_of_day_minutes)
     {from_time, to_time}
   end
 
-  @spec get_time(String.t(), String.t(), String.t()) :: integer()
-  defp get_time(hours, minutes, am_or_pm) do
-    get_minutes_from_hours(hours, am_or_pm) + get_minutes(minutes)
+  defp parse_time_minutes(<<
+         hours::binary-size(2),
+         ?:,
+         minutes::binary-size(2),
+         am_or_pm::binary-size(2)
+       >>) do
+    {hours, minutes, am_or_pm}
+  end
+
+  @spec get_time(String.t(), integer()) :: integer()
+  defp get_time(time, start_of_day_minutes \\ 0) do
+    {hours, minutes, am_or_pm} = parse_time_minutes(time)
+    total_minutes = get_minutes_from_hours(hours, am_or_pm) + get_minutes(minutes) - start_of_day_minutes
+
+    cond do
+      total_minutes < 0 ->
+        total_minutes + @day_minutes
+
+      true ->
+        total_minutes
+    end
   end
 
   @spec get_minutes_from_hours(String.t(), String.t()) :: integer()
